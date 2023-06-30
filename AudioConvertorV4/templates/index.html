@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Аудіо конвертер</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" id="theme-style">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles-dark.css') }}" id="theme-style-dark" media="(prefers-color-scheme: dark)">
+</head>
+<body class="container">
+    <h1>Аудіо конвертер</h1>
+    <form action="/convert" method="post" enctype="multipart/form-data">
+        <input type="file" name="audio" accept="audio/*" required><br>
+        <br><br>
+        <label for="output-format">Виберіть формат для конвертації:</label>
+        <select id="output-format" name="format">
+            <option value="mp3">MP3</option>
+            <option value="wav">WAV</option>
+            <option value="ogg">OGG</option>
+        </select><br>
+        <button type="submit" id="convert-btn">Конвертувати</button>
+        <div id="status" style="display: none;">Конвертація в процесі...</div>
+        <div id="progress-bar-container">
+            <div id="progress-bar"></div>
+            <div id="progress-label"></div>
+    </form>
+ 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.4/socket.io.js" integrity="sha512-aMGMvNYu8Ue4G+fHa359jcPb1u+ytAF+P2SCb+PxrjCdO3n3ZTxJ30zuH39rimUggmTwmh2u7wvQsDTHESnmfQ==" crossorigin="anonymous"></script>
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>
