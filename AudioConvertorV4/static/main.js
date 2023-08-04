@@ -1,87 +1,110 @@
-$(document).ready(function() {
-    var socket = io('http://127.0.0.1:5000/');
+const form = document.querySelector('form');
+const convertBtn = document.querySelector('#convert-btn');
+var xhr = new XMLHttpRequest();
 
-    socket.on('connect', function() {
-      console.log('Socket connected');
-    });
+// Додаємо обробник події при надсиланні форми
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
 
-    socket.on('progress', function(data) {
-      var progress = data.progress.toFixed(2);
-      $('#progress-bar').css('width', progress + '%');
-      $('#progress-label').text(progress + '%');
-    });
+  // Блокування форми
+  form.classList.add('disabled');
+  convertBtn.disabled = true;
+  convertBtn.innerText = 'Конвертація в процесі...';
 
- 
-  $('form').submit(function(e) {
-    e.preventDefault();
-    var fileInput = $('input[type="file"]')[0];
-    var selectedFormat = $('select').val();
-    var allowedFormats = ['mp3', 'wav', 'ogg'];
+  // Отримуємо значення вибраного файлу та формату конвертації
+  const fileInput = document.querySelector('input[type="file"]');
+  const selectedFormat = document.querySelector('select').value;
+  const allowedFormats = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'aiff'];
 
-    var fileExtension = fileInput.value.split('.').pop();
-    if (!allowedFormats.includes(fileExtension.toLowerCase())) {
-      alert('Непідтримуваний формат аудіофайлу!');
-      return;
-    }
+  // Перевірка підтримуваного формату аудіофайлу
+  const fileExtension = fileInput.value.split('.').pop();
+  if (!allowedFormats.includes(fileExtension.toLowerCase())) {
+    alert('Непідтримуваний формат аудіофайлу!');
+    resetForm(); // Скидання форми
+    return;
+  }
 
-    var file = fileInput.files[0];
-    var fileSize = file.size / (1024 * 1024);
-    var maxFileSize = 10; // Максимальний розмір файлу в МБ
-    if (fileSize > maxFileSize) {
-      alert(`Файл занадто великий! Максимальний розмір: ${maxFileSize} МБ`);
-      return;
-    }
+  // Перевірка розміру аудіофайлу
+  const file = fileInput.files[0];
+  const fileSize = file.size / (1024 * 1024);
+  const maxFileSize = 10; // Максимальний розмір файлу в МБ
+  if (fileSize > maxFileSize) {
+    alert(`Файл занадто великий! Максимальний розмір: ${maxFileSize} МБ`);
+    resetForm(); // Скидання форми
+    return;
+  }
 
-    var formData = new FormData();
-    formData.append('audio', file);
-    formData.append('format', selectedFormat);
+  // Відправка запиту на сервер для конвертації
+  const formData = new FormData();
+  formData.append('audio', file);
+  formData.append('format', selectedFormat);
 
-    $.ajax({
-      url: '/convert',
-      type: 'POST',
-      data: formData,
-      processData: false,
-      contentType: false,
-      beforeSend: function() {
-        // Блокування кнопки та показ прогрес-бару
-        $('#convert-btn').prop('disabled', true);
-        $('#status').show();
-        $('#progress-bar').css('width', '0%');
-        $('#progress-label').text('0%');
-      },
-      xhr: function() {
-        var xhr = new window.XMLHttpRequest();
-        xhr.upload.addEventListener('progress', function(e) {
-          if (e.lengthComputable) {
-            var progress = (e.loaded / e.total) * 100;
-            socket.emit('progress', { progress: progress });
-          }
-        }, false);
-        return xhr;
-      },
-      success: function(response) {
-        // Розблокування кнопки та сховання прогрес-бару
-        $('#convert-btn').prop('disabled', false);
-        $('#status').hide();
-
-        // Очищення вибраного файлу
-        $('input[type="file"]').val('');
-
-        // Завантаження конвертованого файлу
-        window.location.href = '/download/' + response.filename;
-      },
-      error: function(xhr, status, error) {
-        // Розблокування кнопки та сховання прогрес-бару
-        $('#convert-btn').prop('disabled', false);
-        $('#status').hide();
-
-        alert('Помилка конвертації: ' + error);
+  //Виконується запит fetch на URL /convert з методом POST та передачею даних formData
+  fetch('/convert', {
+    method: 'POST',
+    body: formData
+  })
+    .then(response => {
+      //Перевіряється відповідь сервера
+      if (response.ok) {
+        return response.blob();
+      } else {
+        throw new Error('Помилка конвертації.');
       }
+    })
+    .then(blob => {
+      // Створення посилання для скачування
+      const downloadLink = document.createElement('a');
+      const convertedFilename = `converted_${file.name.replace(/\.[^/.]+$/, '')}.${selectedFormat}`;
+      downloadLink.href = URL.createObjectURL(blob);
+      downloadLink.download = convertedFilename;
+      document.body.appendChild(downloadLink);
+
+      // Клік на посиланні для початку завантаження
+      downloadLink.click();
+
+      // Видалення посилання з DOM
+      document.body.removeChild(downloadLink);
+
+      // Розблокування форми
+      resetForm();
+    })
+    .catch(error => {
+      console.error(error);
+      alert('Сталася помилка під час конвертації.');
+      resetForm(); // Скидання форми
     });
-  });
 });
 
-///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Відправка запиту на видалення файлу з сервера
+function removeFile() {
+  fetch('/remove_file', {
+    method: 'POST'
+  })
+    .then(function (response) {
+      if (response.ok) {
+        console.log('File successfully deleted.');
+      } else {
+        console.log('Error deleting file.');
+      }
+    })
+    .catch(function (error) {
+      console.log('Error:', error);
+    });
+}
+
+// Скидання форми та видалення конвертованого файлу на сервері
+function resetForm() {
+  // Розблокування форми
+  form.classList.remove('disabled');
+  convertBtn.disabled = false;
+  convertBtn.innerText = 'Конвертувати';
+  form.reset();
+
+  // Видалення конвертованого файлу на сервері
+  removeFile();
+}
+
 // Отримати поточну схему кольорів користувача
 const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
@@ -107,4 +130,3 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e)
     toggleTheme(); // Застосувати світлу тему при зміні схеми кольорів на світлу
   }
 });
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
